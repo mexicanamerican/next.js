@@ -20,6 +20,10 @@ Next.js caching is automatically configured for you. There's no action required 
 Edit your `save_cache` step in `.circleci/config.yml` to include `.next/cache`:
 
 ```yaml
+// Add your CircleCI cache configuration here
+```
+
+```yaml
 steps:
   - save_cache:
       key: dependency-cache-{{ checksum "yarn.lock" }}

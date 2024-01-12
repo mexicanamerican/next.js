@@ -162,7 +162,7 @@ export async function createApp({
           )}. This might take a moment.`
         )
         console.log()
-        await retry(() => downloadAndExtractRepo(root, repoInfo2), {
+        await retry(() => downloadAndExtractRepo(root, repoInfo2, token), {
           retries: 3,
         })
       } else {

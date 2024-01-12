@@ -1,5 +1,47 @@
 # Deploying to GitHub Pages
 
+## Configuring GitHub Actions Workflow
+To include the `.next/cache` directory in the cache, add the following configuration to your GitHub Actions workflow file:
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-cache
+          restore-keys: |
+            ${{ runner.os }}-cache
+      - name: Install dependencies
+        run: npm install
+      # ... other steps
+```
+
+## CircleCI Configuration
+Below is an example configuration for the save_cache step in the CircleCI configuration file:
+```yaml
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: cimg/node:14.17
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            - v1-dependencies-
+      - run: npm install
+      # ... other steps
+      - save_cache:
+          paths:
+            - .next/cache
+          key: v1-dependencies-{{ checksum "package.json" }}
+```
+
 This example supports deploying a statically exported Next.js application to GitHub Pages.
 
 The `out` directory should not be ignored by version control.
