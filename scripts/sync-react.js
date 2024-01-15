@@ -104,7 +104,7 @@ Or, run this command with no arguments to use the most recently published versio
   } else {
     console.log('Installing dependencies...\n')
 
-    const installSubprocess = execa('pnpm', ['install'])
+    const installSubprocess = execa('npm', ['install'])
     if (installSubprocess.stdout) {
       installSubprocess.stdout.pipe(process.stdout)
     }
