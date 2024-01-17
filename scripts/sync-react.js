@@ -216,6 +216,8 @@ async function getChangelogFromGitHub(baseSha, newSha) {
       // the end. Otherwise we'll keep fetching until we run out.
       break
     }
+  console.log(`Fetching changelog from GitHub...`);
+console.log(`Fetching changelog from GitHub...`);
   }
 
   changelog.reverse()
