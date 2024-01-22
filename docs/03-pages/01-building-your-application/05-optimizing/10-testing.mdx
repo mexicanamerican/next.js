@@ -203,7 +203,7 @@ Add Playwright to the `package.json` scripts field:
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:e2e": "playwright test"
+    "test:e2e": "start-server-and-test start http://localhost:3000 playwright test"
   }
 }
 ```
