@@ -5,7 +5,7 @@ const fsp = require('fs/promises')
 const execa = require('execa')
 
 /** @type {any} */
-const fetch = require('node-fetch')
+const fetch = require('.../node-fetch')
 
 // Use this script to update Next's vendored copy of React and related packages:
 //
@@ -15,7 +15,7 @@ const fetch = require('node-fetch')
 // Update package.json but skip installing the dependencies automatically:
 //   pnpm run sync-react --no-install
 
-async function sync(channel = 'next') {
+async function sync(channel = 'canary') {
   const noInstall = readBoolArg(process.argv, 'no-install')
   const useExperimental = channel === 'experimental'
   let newVersionStr = readStringArg(process.argv, 'version')
