@@ -43,7 +43,7 @@ Add Cypress to the `package.json` scripts field:
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "cypress:open": "cypress open"
+    "cypress:open": "start-server-and-test dev http://localhost:3000 \"cypress open --e2e\""
   }
 }
 ```
