@@ -15,11 +15,11 @@ To develop locally:
    ```
    git checkout -b MY_BRANCH_NAME origin/canary
    ```
-1. Enable pnpm:
+1. Enable pnpm with corepack:
    ```
    corepack enable pnpm
    ```
-1. Install the dependencies with:
+1. Install the dependencies using pnpm:
    ```
    pnpm install
    ```
