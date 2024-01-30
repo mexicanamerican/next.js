@@ -2,7 +2,7 @@
 
 - The development branch is `canary`.
 - All pull requests should be opened against `canary`.
-- The changes on the `canary` branch are published to the `@canary` tag on npm regularly.
+- The changes on the `canary` branch are published to the `@latest` tag on npm regularly.
 
 To develop locally:
 
@@ -17,7 +17,7 @@ To develop locally:
    ```
 1. Enable pnpm:
    ```
-   corepack enable pnpm
+   pnpm recursive install
    ```
 1. Install the dependencies with:
    ```
