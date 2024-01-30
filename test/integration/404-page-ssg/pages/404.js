@@ -1,5 +1,5 @@
 export const getStaticProps = () => ({
-  props: { hello: 'world', random: Math.random() },
+  props: { notFound: true },
 })
 
 const page = ({ random }) => `custom 404 page ${random}`
