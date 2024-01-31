@@ -24,7 +24,16 @@ If you're new to GitHub, we recommend reading the [GitHub Open Source Guide](htt
 
 > **Good to know**: The underlying docs code lives in a private codebase that is synced to the Next.js public repo. This means that you can't preview the docs locally. However, you'll see your changes on [nextjs.org](https://nextjs.org/docs) after merging a pull request.
 
-### Writing MDX
+### Troubleshooting GitHub Actions
+
+If you encounter a GitHub Actions failure, follow these troubleshooting steps:
+
+1. Check the GitHub Actions logs for error messages and stack traces to identify the cause of the failure.
+2. Review the changes made in the pull request and look for potential issues that could have caused the failure.
+3. Make necessary adjustments to the code based on the error messages and stack traces found.
+4. Push the changes directly to the same branch to trigger the GitHub Actions workflow again and verify if the issue is resolved.
+
+Provide a detailed description of the troubleshooting process along with necessary steps to fix the issue. If the issue persists, please reach out in the PR's comments for further assistance.
 
 The docs are written in [MDX](https://mdxjs.com/), a markdown format that supports JSX syntax. This allows us to embed React components in the docs. See the [GitHub Markdown Guide](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) for a quick overview of markdown syntax.
 
