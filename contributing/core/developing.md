@@ -15,15 +15,15 @@ To develop locally:
    ```
    git checkout -b MY_BRANCH_NAME origin/canary
    ```
-1. Enable pnpm:
+1. Enable pnpm by running the command: `corepack enable pnpm`.
    ```
    corepack enable pnpm
    ```
-1. Install the dependencies with:
+1. Install the dependencies using pnpm with the command: `pnpm install`.
    ```
    pnpm install
    ```
-1. Start developing and watch for code changes:
+1. Start developing and watch for code changes using the command: `pnpm dev`.
    ```
    pnpm dev
    ```
