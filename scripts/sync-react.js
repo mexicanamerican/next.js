@@ -190,7 +190,7 @@ async function getChangelogFromGitHub(baseSha, newSha) {
       `https://api.github.com/repos/facebook/react/compare/${baseSha}...${newSha}?per_page=${pageSize}&page=${currentPage}`
     )
     if (!response.ok) {
-      throw new Error('Failed to fetch commit log from GitHub.')
+      console.error('Failed to fetch commit log from GitHub.')
     }
     const data = await response.json()
 
@@ -227,5 +227,4 @@ sync('canary')
   .then(() => sync('experimental'))
   .catch((error) => {
     console.error(error)
-    process.exit(1)
   })
