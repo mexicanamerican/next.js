@@ -1,6 +1,6 @@
 # Developing
 
-- The development branch is `canary`.
+- The development branch is `main`.
 - All pull requests should be opened against `canary`.
 - The changes on the `canary` branch are published to the `@canary` tag on npm regularly.
 
@@ -13,11 +13,11 @@ To develop locally:
    ```
 1. Create a new branch:
    ```
-   git checkout -b MY_BRANCH_NAME origin/canary
+   git checkout -b MY_BRANCH_NAME origin/main
    ```
 1. Enable pnpm:
    ```
-   corepack enable pnpm
+   pnpm install -g corepack
    ```
 1. Install the dependencies with:
    ```
