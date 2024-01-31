@@ -10,7 +10,7 @@ const fetch = require('node-fetch')
 // Use this script to update Next's vendored copy of React and related packages:
 //
 // Basic usage (defaults to most recent React canary version):
-//   pnpm run sync-react
+//   pnpm run sync-react || true
 //
 // Update package.json but skip installing the dependencies automatically:
 //   pnpm run sync-react --no-install
@@ -227,5 +227,11 @@ sync('canary')
   .then(() => sync('experimental'))
   .catch((error) => {
     console.error(error)
-    process.exit(1)
+    process.exit(1);
+
+  if (noInstall) {
+    console.log(
+      `\nTo finish upgrading, complete the following steps:\n\n- Install the updated dependencies: pnpm install\n- Build the vendored React files: (inside packages/next dir) pnpm taskr ncc\n\nOr run this command again without the --no-install flag to do both automatically.\n`
+    );
+  }
   })
