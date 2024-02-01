@@ -1,0 +1,25 @@
+const fs = require('fs');
+const yaml = require('js-yaml');
+
+const workflowFilePath = '.github/workflows/main.yml';
+
+// Read the contents of the workflow file
+const workflowFileContents = fs.readFileSync(workflowFilePath, 'utf8');
+
+// Parse the YAML contents into an object
+const workflowObject = yaml.safeLoad(workflowFileContents);
+
+// Locate the step where the `actions/checkout@v3` action is used
+const checkoutStep = workflowObject.jobs.build.steps.find(step => step.uses === 'actions/checkout@v3');
+
+// Add the `with` section to the `actions/checkout@v3` step
+checkoutStep.with = {};
+
+// Add the `token` input to the `with` section
+checkoutStep.with.token = process.env.GITHUB_TOKEN;
+
+// Convert the modified YAML object back to a string
+const modifiedWorkflowFileContents = yaml.safeDump(workflowObject);
+
+// Save the modified workflow file
+fs.writeFileSync(workflowFilePath, modifiedWorkflowFileContents);
