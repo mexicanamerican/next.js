@@ -185,7 +185,9 @@ async function fetchTestResults() {
     filePath,
     'nextjs-test-results.json',
   ])
+  console.log('Test results manifest extracted:', stdout)
 
+  console.log('stdout:', stdout)
   return JSON.parse(stdout)
 }
 
