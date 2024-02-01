@@ -33,6 +33,8 @@ async function sync(channel = 'next') {
       }
     )
     if (stderr) {
+    console.error('Failed to read the latest React canary version from npm.');
+    process.exit(1);
       console.error(stderr)
       throw new Error('Failed to read latest React canary version from npm.')
     }
@@ -111,7 +113,9 @@ Or, run this command with no arguments to use the most recently published versio
     try {
       await installSubprocess
     } catch (error) {
-      console.error(error)
+      console.error(error);
+    console.error('Failed to run ncc.');
+    process.exit(1);
       throw new Error('Failed to install updated dependencies.')
     }
 
@@ -125,7 +129,8 @@ Or, run this command with no arguments to use the most recently published versio
     try {
       await nccSubprocess
     } catch (error) {
-      console.error(error)
+      console.error(error);
+    console.error('Failed to fetch changelog from GitHub. Changes were applied, anyway.');
       throw new Error('Failed to run ncc.')
     }
 
@@ -146,7 +151,7 @@ Or, run this command with no arguments to use the most recently published versio
       console.log(`### React upstream changes\n\n${changelog}\n\n`)
     }
   } catch (error) {
-    console.error(error)
+    console.error('Failed to fetch changelog from GitHub. Changes were applied, anyway.');
     console.log(
       '\nFailed to fetch changelog from GitHub. Changes were applied, anyway.\n'
     )
@@ -190,6 +195,8 @@ async function getChangelogFromGitHub(baseSha, newSha) {
       `https://api.github.com/repos/facebook/react/compare/${baseSha}...${newSha}?per_page=${pageSize}&page=${currentPage}`
     )
     if (!response.ok) {
+    console.error('Failed to fetch commit log from GitHub.');
+    process.exit(1);
       throw new Error('Failed to fetch commit log from GitHub.')
     }
     const data = await response.json()
