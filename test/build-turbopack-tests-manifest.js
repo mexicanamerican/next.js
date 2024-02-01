@@ -2,8 +2,8 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const prettier = require('prettier')
-const execa = require('execa')
+import prettier from 'prettier'
+import execa from 'execa'
 const { bold } = require('kleur')
 
 async function format(text) {
