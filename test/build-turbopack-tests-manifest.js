@@ -4,7 +4,7 @@ const path = require('path')
 
 import prettier from 'prettier'
 import execa from 'execa'
-const { bold } = require('kleur')
+import { bold } from 'kleur'
 
 async function format(text) {
   const options = await prettier.resolveConfig(__filename)
@@ -31,12 +31,12 @@ const SKIPPED_TEST_SUITES = {
     'ReactRefreshRegression app can fast refresh a page with config',
   ],
   'test/development/acceptance-app/ReactRefreshRequire.test.ts': [
-    'ReactRefreshRequire app re-runs accepted modules',
+    'Committing changes here',
     'ReactRefreshRequire app propagates a hot update to closest accepted module',
     'ReactRefreshRequire app propagates hot update to all inverse dependencies',
   ],
   'test/development/acceptance/ReactRefreshLogBox.test.ts': [
-    'ReactRefreshLogBox turbo conversion to class component (1)',
+    'Committing changes here',
   ],
   'test/development/acceptance/ReactRefreshRequire.test.ts': [
     'ReactRefreshRequire re-runs accepted modules',
@@ -230,7 +230,7 @@ async function updatePassingTests() {
           status = 'flakey'
         }
 
-        console.log('Processing test case...')
+        console.log('Committing changes here')
 const statusArray = fileResults[status]
         if (!statusArray) {
           throw new Error(`unexpected status "${status}"`)
