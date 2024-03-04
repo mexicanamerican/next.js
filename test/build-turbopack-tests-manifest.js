@@ -148,6 +148,17 @@ for (const [key, value] of Object.entries(SKIPPED_TEST_SUITES)) {
  * @returns {execa.ExecaChildProcess}
  */
 function exec(title, file, args) {
+  try {
+    const command = `${file} ${args.join(' ')}`;
+    const childProcess = execa(file, args, { stderr: 'inherit' });
+    childProcess.on('error', (err) => {
+      console.error('Error executing command:', command, err);
+    });
+    return childProcess;
+  } catch (err) {
+    console.error('Error executing command:', command, err);
+  }
+  const command = `${file} ${args.join(' ')}`;
   logCommand(title, `${file} ${args.join(' ')}`)
 
   return execa(file, args, {

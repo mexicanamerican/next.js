@@ -2,7 +2,7 @@
 
 const path = require('path')
 const fsp = require('fs/promises')
-const execa = require('execa')
+const exec = require('execa')
 
 /** @type {any} */
 const fetch = require('node-fetch')
@@ -34,7 +34,7 @@ async function sync(channel = 'next') {
     )
     if (stderr) {
       console.error(stderr)
-      throw new Error('Failed to read latest React canary version from npm.')
+      throw new Error('Failed to fetch the latest React canary version from npm. Please check your network connection and try again.')
     }
     newVersionStr = stdout.trim()
   }
