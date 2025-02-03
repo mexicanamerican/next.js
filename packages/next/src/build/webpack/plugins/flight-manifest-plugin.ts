@@ -20,12 +20,18 @@ import { WEBPACK_LAYERS } from '../../../lib/constants'
 import { normalizePagePath } from '../../../shared/lib/page-path/normalize-page-path'
 import { CLIENT_STATIC_FILES_RUNTIME_MAIN_APP } from '../../../shared/lib/constants'
 import { getDeploymentIdQueryOrEmptyString } from '../../deployment-id'
-import { formatBarrelOptimizedResource } from '../utils'
+import {
+  formatBarrelOptimizedResource,
+  getModuleReferencesInOrder,
+} from '../utils'
 import type { ChunkGroup } from 'webpack'
+import { encodeURIPath } from '../../../shared/lib/encode-uri-path'
+import type { ModuleInfo } from './flight-client-entry-plugin'
 
 interface Options {
   dev: boolean
   appDir: string
+  experimentalInlineCss: boolean
 }
 
 /**
@@ -38,9 +44,11 @@ type ModuleId = string | number /*| null*/
 export type ManifestChunks = Array<string>
 
 const pluginState = getProxiedPluginState({
-  serverModuleIds: {} as Record<string, string | number>,
-  edgeServerModuleIds: {} as Record<string, string | number>,
-  ASYNC_CLIENT_MODULES: [] as string[],
+  ssrModules: {} as { [ssrModuleId: string]: ModuleInfo },
+  edgeSsrModules: {} as { [ssrModuleId: string]: ModuleInfo },
+
+  rscModules: {} as { [rscModuleId: string]: ModuleInfo },
+  edgeRscModules: {} as { [rscModuleId: string]: ModuleInfo },
 })
 
 export interface ManifestNode {
@@ -65,12 +73,34 @@ export interface ManifestNode {
   }
 }
 
-export type ClientReferenceManifest = {
-  moduleLoading: {
+export interface ClientReferenceManifestForRsc {
+  clientModules: ManifestNode
+  rscModuleMapping: {
+    [moduleId: string]: ManifestNode
+  }
+  edgeRscModuleMapping: {
+    [moduleId: string]: ManifestNode
+  }
+}
+
+export type CssResource = InlinedCssFile | UninlinedCssFile
+
+interface InlinedCssFile {
+  path: string
+  inlined: true
+  content: string
+}
+
+interface UninlinedCssFile {
+  path: string
+  inlined: false
+}
+
+export interface ClientReferenceManifest extends ClientReferenceManifestForRsc {
+  readonly moduleLoading: {
     prefix: string
     crossOrigin: string | null
   }
-  clientModules: ManifestNode
   ssrModuleMapping: {
     [moduleId: string]: ManifestNode
   }
@@ -78,7 +108,7 @@ export type ClientReferenceManifest = {
     [moduleId: string]: ManifestNode
   }
   entryCSSFiles: {
-    [entry: string]: string[]
+    [entry: string]: CssResource[]
   }
   entryJSFiles?: {
     [entry: string]: string[]
@@ -115,7 +145,10 @@ function getAppPathRequiredChunks(
         // previously done for dynamic chunks by patching the webpack runtime but we want
         // these filenames to be managed by React's Flight runtime instead and so we need
         // to implement any special handling of the file name here.
-        return chunks.push(chunkId, encodeURI(file + deploymentIdChunkQuery))
+        return chunks.push(
+          chunkId,
+          encodeURIPath(file) + deploymentIdChunkQuery
+        )
       })
     }
   })
@@ -141,7 +174,7 @@ function entryNameToGroupName(entryName: string) {
     // Remove catch-all routes since they should be part of the parent group that the catch-all would apply to.
     // This is necessary to support parallel routes since multiple page components can be rendered on the same page.
     // In order to do that, we need to ensure that the manifests are merged together by putting them in the same group.
-    .replace(/\/\[?\[\.\.\.[^\]]*\]\]?/g, '')
+    .replace(/\/\[?\[\.\.\.[^\]]*]]?/g, '')
 
   // Interception routes
   groupName = groupName
@@ -167,6 +200,11 @@ function mergeManifest(
     manifestToMerge.edgeSSRModuleMapping
   )
   Object.assign(manifest.entryCSSFiles, manifestToMerge.entryCSSFiles)
+  Object.assign(manifest.rscModuleMapping, manifestToMerge.rscModuleMapping)
+  Object.assign(
+    manifest.edgeRscModuleMapping,
+    manifestToMerge.edgeRscModuleMapping
+  )
 }
 
 const PLUGIN_NAME = 'ClientReferenceManifestPlugin'
@@ -175,38 +213,27 @@ export class ClientReferenceManifestPlugin {
   dev: Options['dev'] = false
   appDir: Options['appDir']
   appDirBase: string
-  ASYNC_CLIENT_MODULES: Set<string>
+  experimentalInlineCss: Options['experimentalInlineCss']
 
   constructor(options: Options) {
     this.dev = options.dev
     this.appDir = options.appDir
     this.appDirBase = path.dirname(this.appDir) + path.sep
-    this.ASYNC_CLIENT_MODULES = new Set(pluginState.ASYNC_CLIENT_MODULES)
+    this.experimentalInlineCss = options.experimentalInlineCss
   }
 
   apply(compiler: webpack.Compiler) {
-    compiler.hooks.compilation.tap(
-      PLUGIN_NAME,
-      (compilation, { normalModuleFactory }) => {
-        compilation.dependencyFactories.set(
-          webpack.dependencies.ModuleDependency,
-          normalModuleFactory
-        )
-        compilation.dependencyTemplates.set(
-          webpack.dependencies.ModuleDependency,
-          new webpack.dependencies.NullDependency.Template()
-        )
-        compilation.hooks.processAssets.tap(
-          {
-            name: PLUGIN_NAME,
-            // Have to be in the optimize stage to run after updating the CSS
-            // asset hash via extract mini css plugin.
-            stage: webpack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_HASH,
-          },
-          (assets) => this.createAsset(assets, compilation, compiler.context)
-        )
-      }
-    )
+    compiler.hooks.compilation.tap(PLUGIN_NAME, (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: PLUGIN_NAME,
+          // Have to be in the optimize stage to run after updating the CSS
+          // asset hash via extract mini css plugin.
+          stage: webpack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_HASH,
+        },
+        (assets) => this.createAsset(assets, compilation, compiler.context)
+      )
+    })
   }
 
   createAsset(
@@ -264,6 +291,8 @@ export class ClientReferenceManifestPlugin {
         edgeSSRModuleMapping: {},
         clientModules: {},
         entryCSSFiles: {},
+        rscModuleMapping: {},
+        edgeRscModuleMapping: {},
       }
 
       // Absolute path without the extension
@@ -271,12 +300,32 @@ export class ClientReferenceManifestPlugin {
         /[\\/]/g,
         path.sep
       )
+
       manifest.entryCSSFiles[chunkEntryName] = entrypoint
         .getFiles()
         .filter((f) => !f.startsWith('static/css/pages/') && f.endsWith('.css'))
+        .map((file) => {
+          const source = compilation.assets[file].source()
+          if (
+            this.experimentalInlineCss &&
+            // Inline CSS currently does not work properly with HMR, so we only
+            // inline CSS in production.
+            !this.dev
+          ) {
+            return {
+              inlined: true,
+              path: file,
+              content: typeof source === 'string' ? source : source.toString(),
+            }
+          }
+          return {
+            inlined: false,
+            path: file,
+          }
+        })
 
       const requiredChunks = getAppPathRequiredChunks(entrypoint, rootMainFiles)
-      const recordModule = (id: ModuleId, mod: webpack.NormalModule) => {
+      const recordModule = (modId: ModuleId, mod: webpack.NormalModule) => {
         let resource =
           mod.type === 'css/mini-extract'
             ? // @ts-expect-error TODO: use `identifier()` instead.
@@ -291,6 +340,9 @@ export class ClientReferenceManifestPlugin {
         const moduleIdMapping = manifest.ssrModuleMapping
         const edgeModuleIdMapping = manifest.edgeSSRModuleMapping
 
+        const rscIdMapping = manifest.rscModuleMapping
+        const edgeRscIdMapping = manifest.edgeRscModuleMapping
+
         // Note that this isn't that reliable as webpack is still possible to assign
         // additional queries to make sure there's no conflict even using the `named`
         // module ID strategy.
@@ -299,10 +351,13 @@ export class ClientReferenceManifestPlugin {
           mod.resourceResolveData?.path || resource
         )
 
+        const rscNamedModuleId = relative(
+          context,
+          mod.resourceResolveData?.path || resource
+        )
+
         if (!ssrNamedModuleId.startsWith('.'))
           ssrNamedModuleId = `./${ssrNamedModuleId.replace(/\\/g, '/')}`
-
-        const isAsyncModule = this.ASYNC_CLIENT_MODULES.has(mod.resource)
 
         // The client compiler will always use the CJS Next.js build, so here we
         // also add the mapping for the ESM build (Edge runtime) to consume.
@@ -326,12 +381,18 @@ export class ClientReferenceManifestPlugin {
         }
 
         function addClientReference() {
+          const isAsync = Boolean(
+            compilation.moduleGraph.isAsync(mod) ||
+              pluginState.ssrModules[ssrNamedModuleId]?.async ||
+              pluginState.edgeSsrModules[ssrNamedModuleId]?.async
+          )
+
           const exportName = resource
           manifest.clientModules[exportName] = {
-            id,
+            id: modId,
             name: '*',
             chunks: requiredChunks,
-            async: isAsyncModule,
+            async: isAsync,
           }
           if (esmResource) {
             const edgeExportName = esmResource
@@ -342,42 +403,79 @@ export class ClientReferenceManifestPlugin {
 
         function addSSRIdMapping() {
           const exportName = resource
-          if (
-            typeof pluginState.serverModuleIds[ssrNamedModuleId] !== 'undefined'
-          ) {
-            moduleIdMapping[id] = moduleIdMapping[id] || {}
-            moduleIdMapping[id]['*'] = {
+          const moduleInfo = pluginState.ssrModules[ssrNamedModuleId]
+
+          if (moduleInfo) {
+            moduleIdMapping[modId] = moduleIdMapping[modId] || {}
+            moduleIdMapping[modId]['*'] = {
               ...manifest.clientModules[exportName],
               // During SSR, we don't have external chunks to load on the server
               // side with our architecture of Webpack / Turbopack. We can keep
               // this field empty to save some bytes.
               chunks: [],
-              id: pluginState.serverModuleIds[ssrNamedModuleId],
+              id: moduleInfo.moduleId,
+              async: moduleInfo.async,
             }
           }
 
-          if (
-            typeof pluginState.edgeServerModuleIds[ssrNamedModuleId] !==
-            'undefined'
-          ) {
-            edgeModuleIdMapping[id] = edgeModuleIdMapping[id] || {}
-            edgeModuleIdMapping[id]['*'] = {
+          const edgeModuleInfo = pluginState.edgeSsrModules[ssrNamedModuleId]
+
+          if (edgeModuleInfo) {
+            edgeModuleIdMapping[modId] = edgeModuleIdMapping[modId] || {}
+            edgeModuleIdMapping[modId]['*'] = {
               ...manifest.clientModules[exportName],
               // During SSR, we don't have external chunks to load on the server
               // side with our architecture of Webpack / Turbopack. We can keep
               // this field empty to save some bytes.
               chunks: [],
-              id: pluginState.edgeServerModuleIds[ssrNamedModuleId],
+              id: edgeModuleInfo.moduleId,
+              async: edgeModuleInfo.async,
+            }
+          }
+        }
+
+        function addRSCIdMapping() {
+          const exportName = resource
+          const moduleInfo = pluginState.rscModules[rscNamedModuleId]
+
+          if (moduleInfo) {
+            rscIdMapping[modId] = rscIdMapping[modId] || {}
+            rscIdMapping[modId]['*'] = {
+              ...manifest.clientModules[exportName],
+              // During SSR, we don't have external chunks to load on the server
+              // side with our architecture of Webpack / Turbopack. We can keep
+              // this field empty to save some bytes.
+              chunks: [],
+              id: moduleInfo.moduleId,
+              async: moduleInfo.async,
+            }
+          }
+
+          const edgeModuleInfo = pluginState.ssrModules[rscNamedModuleId]
+
+          if (edgeModuleInfo) {
+            edgeRscIdMapping[modId] = edgeRscIdMapping[modId] || {}
+            edgeRscIdMapping[modId]['*'] = {
+              ...manifest.clientModules[exportName],
+              // During SSR, we don't have external chunks to load on the server
+              // side with our architecture of Webpack / Turbopack. We can keep
+              // this field empty to save some bytes.
+              chunks: [],
+              id: edgeModuleInfo.moduleId,
+              async: edgeModuleInfo.async,
             }
           }
         }
 
         addClientReference()
         addSSRIdMapping()
+        addRSCIdMapping()
 
         manifest.clientModules = moduleReferences
         manifest.ssrModuleMapping = moduleIdMapping
         manifest.edgeSSRModuleMapping = edgeModuleIdMapping
+        manifest.rscModuleMapping = rscIdMapping
+        manifest.edgeRscModuleMapping = edgeRscIdMapping
       }
 
       const checkedChunkGroups = new Set()
@@ -410,8 +508,10 @@ export class ClientReferenceManifestPlugin {
               continue
             }
 
-            const connections =
-              compilation.moduleGraph.getOutgoingConnections(mod)
+            const connections = getModuleReferencesInOrder(
+              mod,
+              compilation.moduleGraph
+            )
 
             for (const connection of connections) {
               const dependency = connection.dependency
@@ -434,7 +534,9 @@ export class ClientReferenceManifestPlugin {
                   const concatenatedMod = connection.module
                   const concatenatedModId =
                     compilation.chunkGraph.getModuleId(concatenatedMod)
-                  recordModule(concatenatedModId, clientEntryMod)
+                  if (concatenatedModId) {
+                    recordModule(concatenatedModId, clientEntryMod)
+                  }
                 }
               }
             }
@@ -456,6 +558,12 @@ export class ClientReferenceManifestPlugin {
         manifestEntryFiles.push(entryName.replace(/\/page(\.[^/]+)?$/, '/page'))
       }
 
+      // We also need to create manifests for route handler entrypoints to
+      // enable `'use cache'`.
+      if (/\/route$/.test(entryName)) {
+        manifestEntryFiles.push(entryName)
+      }
+
       const groupName = entryNameToGroupName(entryName)
       if (!manifestsPerGroup.has(groupName)) {
         manifestsPerGroup.set(groupName, [])
@@ -474,6 +582,8 @@ export class ClientReferenceManifestPlugin {
         edgeSSRModuleMapping: {},
         clientModules: {},
         entryCSSFiles: {},
+        rscModuleMapping: {},
+        edgeRscModuleMapping: {},
       }
 
       const segments = [...entryNameToGroupName(pageName).split('/'), 'page']
@@ -497,7 +607,5 @@ export class ClientReferenceManifestPlugin {
         )}]=${json}`
       ) as unknown as webpack.sources.RawSource
     }
-
-    pluginState.ASYNC_CLIENT_MODULES = []
   }
 }
